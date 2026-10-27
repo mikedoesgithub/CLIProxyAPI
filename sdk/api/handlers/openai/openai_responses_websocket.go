@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/interfaces"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -570,6 +571,13 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 			}
 			continue
 		}
+		if h.BalanceEnabled() && thinking.ParseSuffix(requestModelName).ModelName == "balance" {
+			_, errWrite := writeResponsesWebsocketError(writer, wsTimelineLog, &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: errors.New("balance requires stateless HTTP requests; pin a concrete model for WebSocket sessions")})
+			if errWrite != nil {
+				return
+			}
+			continue
+		}
 		executionParent := context.WithValue(c.Request.Context(), "gin", c)
 		executionParent, routeOverridesModelResolution := h.PrepareStreamModelRoute(
 			executionParent,
@@ -577,6 +585,7 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 			requestModelName,
 			payload,
 		)
+
 		pluginExecutorID := handlers.PreparedStreamPluginExecutor(executionParent)
 		isPluginExecutorRoute := pluginExecutorID != ""
 		if pinnedAuthID != "" {

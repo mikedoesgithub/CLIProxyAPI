@@ -7,6 +7,9 @@ package config
 import internalconfig "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 
 type SDKConfig = internalconfig.SDKConfig
+type BalanceConfig = internalconfig.BalanceConfig
+type BalanceCandidate = internalconfig.BalanceCandidate
+type BalanceRule = internalconfig.BalanceRule
 
 type Config = internalconfig.Config
 

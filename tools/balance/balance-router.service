@@ -1,0 +1,20 @@
+# Copy to ~/.config/systemd/user/balance-router.service after setup.sh.
+# Adjust paths if your checkout is not ~/cliproxyapi.
+[Unit]
+Description=prox local balance decision classifier
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/cliproxyapi
+ExecStart=%h/cliproxyapi/.balance/venv/bin/python %h/cliproxyapi/tools/balance/server.py --model-dir %h/cliproxyapi/.balance/model --threads 2 --max-tokens 128
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+CPUQuota=200%
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target

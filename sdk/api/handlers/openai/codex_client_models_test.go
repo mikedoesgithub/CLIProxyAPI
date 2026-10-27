@@ -384,3 +384,18 @@ func TestCodexClientModelsApplyPatchRouting(t *testing.T) {
 	assertPatch(t, withoutManager.codexClientModelsResponse("0.153.4"), "catalog-patch-synthetic", nil)
 
 }
+
+func TestBalanceVirtualModelAppearsInCodexCatalog(t *testing.T) {
+	h := NewOpenAIAPIHandler(handlers.NewBaseAPIHandlers(&config.SDKConfig{Balance: config.BalanceConfig{Enabled: true}}, nil))
+	body := h.codexClientModelsResponse()
+	models, ok := body["models"].([]map[string]any)
+	if !ok {
+		t.Fatalf("models type: %T", body["models"])
+	}
+	for _, model := range models {
+		if model["slug"] == "balance" {
+			return
+		}
+	}
+	t.Fatal("balance absent from Codex catalog")
+}

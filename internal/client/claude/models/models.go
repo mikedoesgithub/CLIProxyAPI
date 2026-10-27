@@ -13,7 +13,7 @@ func BuildResponse(availableModels []map[string]any, disableCloaking bool) map[s
 	models := make([]map[string]any, len(availableModels))
 	for i, model := range availableModels {
 		models[i] = cloneModel(model)
-		if id, ok := models[i]["id"].(string); ok && !disableCloaking {
+		if id, ok := models[i]["id"].(string); ok && !disableCloaking && id != "balance" {
 			models[i]["id"] = EnsureClaudeModelIDPrefix(id)
 		}
 	}

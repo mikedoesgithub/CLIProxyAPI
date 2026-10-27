@@ -341,3 +341,8 @@ A Rust port of CLIProxyAPI that reads the same `config.yaml` and auth files and 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## prox Balance Router
+
+This fork includes an opt-in, local CPU decision model exposed as `balance`. See
+[setup, model-selection policy, retraining and limitations](docs/balance.md).
