@@ -251,3 +251,16 @@ func TestRecoverDevinBareApplyPatch(t *testing.T) {
 		})
 	}
 }
+
+func TestDevinPatchReasonCodeJSONDecoderVersions(t *testing.T) {
+	// Go 1.27 shortened encoding/json's string syntax error wording.
+	// Both variants must map to a fixed code without exposing upstream text.
+	for _, reason := range []string{
+		"decode apply_patch input value: invalid character '\\n' in string literal",
+		"decode apply_patch input value: invalid character '\\n' in string",
+	} {
+		if got := devinPatchReasonCode(reason); got != "invalid control character in apply_patch input" {
+			t.Errorf("reason code = %q for %q", got, reason)
+		}
+	}
+}
