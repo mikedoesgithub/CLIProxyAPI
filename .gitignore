@@ -67,3 +67,9 @@ docker-compose.override.yml
 
 # Local LLM Wiki vault
 .llm-wiki
+
+# Optional local balance decision model and private training data
+.balance/
+tools/balance/__pycache__/
+!docs/balance.md
+!docs/balance-benchmark.md

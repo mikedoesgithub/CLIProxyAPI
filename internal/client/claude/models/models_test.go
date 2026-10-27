@@ -136,3 +136,10 @@ func TestResolveClaudeModelIDPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestBalanceVirtualModelIsNotCloaked(t *testing.T) {
+	response := BuildResponse([]map[string]any{{"id": "balance", "display_name": "Balance"}}, false)
+	if response["data"].([]map[string]any)[0]["id"] != "balance" {
+		t.Fatal("virtual model was cloaked")
+	}
+}

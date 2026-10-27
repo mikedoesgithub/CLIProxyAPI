@@ -126,6 +126,12 @@ func nativeInteractionsExecutionError() *interfaces.ErrorMessage {
 // router selected a built-in provider, it skips model->provider resolution and uses the router's
 // provider (with an optional target model); otherwise it falls back to the registry-based path.
 func (h *BaseAPIHandler) providersForExecution(modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) ([]string, string, *interfaces.ErrorMessage) {
+	if routeDecision.Error != nil {
+		return nil, "", routeDecision.Error
+	}
+	if routeDecision.Model != "" {
+		modelName = routeDecision.Model
+	}
 	forcedProvider := strings.ToLower(strings.TrimSpace(execOptions.ForcedProvider))
 	if forcedProvider != "" {
 		if routeDecision.ExecutorPluginID != "" {
@@ -322,6 +328,9 @@ type modelRouteDecision struct {
 	ExecutorPluginID string
 	Provider         string
 	Model            string
+	Error            *interfaces.ErrorMessage
+	BalanceTask      string
+	BalanceSource    string
 }
 
 func routeModel(ctx context.Context, host PluginModelRouterHost, req pluginapi.ModelRouteRequest, skipPluginID string) (pluginapi.ModelRouteResponse, bool) {
@@ -361,6 +370,9 @@ func modelRoutersEnabled(host PluginModelRouterHost, skipPluginID string) bool {
 
 func (h *BaseAPIHandler) applyModelRouter(ctx context.Context, handlerType, modelName string, rawJSON []byte, stream bool, execOptions modelExecutionOptions) modelRouteDecision {
 	var decision modelRouteDecision
+	if builtIn, handled := h.applyBalanceRouter(ctx, handlerType, modelName, rawJSON, execOptions); handled {
+		return builtIn
+	}
 	host := h.modelRouterHost()
 	if host == nil || !modelRoutersEnabled(host, execOptions.SkipRouterPluginID) {
 		return decision

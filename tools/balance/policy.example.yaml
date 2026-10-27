@@ -1,0 +1,52 @@
+# Merge this section into the existing routing map; do not replace your config.
+# Model strings MUST match your /v1/models aliases; absent models are skipped.
+# Relative scores below are starter policy choices, not measured benchmark scores.
+# See docs/balance.md for dated sources, limitations and how to evaluate locally.
+routing:
+  balance:
+    enabled: true
+    classifier-url: http://127.0.0.1:8318/classify
+    timeout-ms: 100               # Local preflight only, capped at 250 ms
+    min-confidence: 0.65
+    fallback: gpt-6.1-sol
+    cost-weight: 0.10             # Quality dominates; ties prefer lower cost/latency
+    latency-weight: 0.05
+    rules:                       # Explicit lexical overrides; NOT learned predictions
+      - task: browser
+        any: ["use the browser", "browser automation", "playwright", "browse the web"]
+      - task: 3d
+        any: ["blender", "3d model", "3d modeling", "3d modelling", "three.js", "cad model"]
+    candidates:
+      - model: gpt-6.1-terra
+        tasks: [browser]
+        quality: 95
+        cost: 30
+        latency: 20
+        tools: true
+        long-context: true
+      - model: claude-opus-5-5
+        tasks: [3d, coding, agentic, math, design]
+        difficulties: [moderate, hard, frontier]
+        quality: 99
+        cost: 90
+        latency: 75
+        tools: true
+        long-context: true
+      - model: gpt-6.1-sol
+        tasks: ["*"]
+        quality: 95
+        cost: 70
+        latency: 60
+        tools: true
+        long-context: true
+      - model: claude-sonnet-5-5
+        tasks: [general, knowledge, summarisation, coding, tool_use]
+        difficulties: [trivial, easy]
+        quality: 95
+        cost: 35
+        latency: 30
+        tools: true
+        long-context: true
+# Native provider tools (computer, web_search, etc.) are denied unless a candidate
+# explicitly lists their exact wire type under native-tools. Ordinary functions
+# only require tools: true. Verify executor/provider support before allowing them.

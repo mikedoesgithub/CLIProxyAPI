@@ -128,3 +128,37 @@ func TestClaudeExecutorSharedCredentialMetadataMixedAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestClaudeSetupTokenConcurrentMetadataAccess(t *testing.T) {
+	for _, key := range []string{"skip_account_profile", "is_setup_token", "setup_token"} {
+		t.Run(key, func(t *testing.T) {
+			auth := newSharedClaudeOAuthAuth("claude-setup-race")
+			var wg sync.WaitGroup
+			start := make(chan struct{})
+			for i := 0; i < 32; i++ {
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					<-start
+					for j := 0; j < 100; j++ {
+						if i%2 == 0 {
+							claudeauth.StoreMetadataValue(&auth.Metadata, key, j%2 == 0)
+						} else {
+							_ = isClaudeSetupToken(auth, "sk-ant-oat-race-probe")
+						}
+					}
+				}(i)
+			}
+			close(start)
+			wg.Wait()
+			claudeauth.StoreMetadataValue(&auth.Metadata, key, true)
+			if !isClaudeSetupToken(auth, "sk-ant-oat-race-probe") {
+				t.Fatal("true setup-token flag was ignored")
+			}
+			claudeauth.StoreMetadataValue(&auth.Metadata, key, "true")
+			if isClaudeSetupToken(auth, "sk-ant-oat-race-probe") {
+				t.Fatal("string setup-token flag must retain bool-only semantics")
+			}
+		})
+	}
+}

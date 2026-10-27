@@ -24,13 +24,16 @@ func TestCodexConfigurationUpdateCapability(t *testing.T) {
 					byID[info.ID] = info
 				}
 			}
-			for _, id := range append([]string{"gpt-5.5"}, tier.capable...) {
+			// Include a synthetic legacy model so false-capability cloning remains
+			// covered even after older models leave the embedded catalog.
+			byID["legacy-no-update"] = &ModelInfo{ID: "legacy-no-update"}
+			for _, id := range append([]string{"legacy-no-update"}, tier.capable...) {
 				info := byID[id]
 				if info == nil {
 					t.Errorf("%s is missing", id)
 					continue
 				}
-				want := id != "gpt-5.5"
+				want := id != "legacy-no-update"
 				if info.SupportConfigurationUpdate != want {
 					t.Errorf("%s configuration_update = %v, want %v", id, info.SupportConfigurationUpdate, want)
 				}

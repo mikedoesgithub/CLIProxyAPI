@@ -3,6 +3,7 @@ package openai
 import (
 	"testing"
 
+	clientmodels "github.com/router-for-me/CLIProxyAPI/v8/internal/client/codex/models"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
@@ -21,12 +22,15 @@ func TestCodexClientModelsResponseMultiAgentV2FollowsConfig(t *testing.T) {
 
 	base := handlers.NewBaseAPIHandlers(&config.SDKConfig{}, nil)
 	handler := NewOpenAIAPIHandler(base)
+	baseline := clientmodels.BuildResponse([]map[string]any{{"id": modelID}}, nil, false)
+	baselineVersion := baseline["models"].([]map[string]any)[0]["multi_agent_version"]
 	for _, tt := range []struct {
 		name    string
 		enabled bool
 	}{
 		{name: "disabled", enabled: false},
 		{name: "enabled", enabled: true},
+		{name: "disabled again", enabled: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			base.Cfg.Client.Codex.OptimizeMultiAgentV2 = tt.enabled
@@ -53,8 +57,8 @@ func TestCodexClientModelsResponseMultiAgentV2FollowsConfig(t *testing.T) {
 				}
 				return
 			}
-			if !exists || value != nil {
-				t.Fatalf("multi_agent_version = %#v, want preserved null", value)
+			if !exists || value != baselineVersion {
+				t.Fatalf("multi_agent_version = %#v, want preserved catalog value %#v", value, baselineVersion)
 			}
 		})
 	}
@@ -383,4 +387,19 @@ func TestCodexClientModelsApplyPatchRouting(t *testing.T) {
 	withoutManager := NewOpenAIAPIHandler(handlers.NewBaseAPIHandlers(enabledCfg, nil))
 	assertPatch(t, withoutManager.codexClientModelsResponse("0.153.4"), "catalog-patch-synthetic", nil)
 
+}
+
+func TestBalanceVirtualModelAppearsInCodexCatalog(t *testing.T) {
+	h := NewOpenAIAPIHandler(handlers.NewBaseAPIHandlers(&config.SDKConfig{Balance: config.BalanceConfig{Enabled: true}}, nil))
+	body := h.codexClientModelsResponse()
+	models, ok := body["models"].([]map[string]any)
+	if !ok {
+		t.Fatalf("models type: %T", body["models"])
+	}
+	for _, model := range models {
+		if model["slug"] == "balance" {
+			return
+		}
+	}
+	t.Fatal("balance absent from Codex catalog")
 }

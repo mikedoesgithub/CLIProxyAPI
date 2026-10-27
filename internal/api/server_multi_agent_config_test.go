@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	clientmodels "github.com/router-for-me/CLIProxyAPI/v8/internal/client/codex/models"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -20,6 +21,10 @@ func TestModelsMultiAgentClientConfigAndReload(t *testing.T) {
 			modelRegistry := registry.GetGlobalRegistry()
 			modelRegistry.RegisterClient(clientID, "codex", []*registry.ModelInfo{{ID: modelID}})
 			t.Cleanup(func() { modelRegistry.UnregisterClient(clientID) })
+			// Disabled optimization preserves the catalog's default, which can
+			// already be v2; it does not force a null or downgrade to v1.
+			baseline := clientmodels.BuildResponse([]map[string]any{{"id": modelID}}, nil, false)
+			baselineVersion := baseline["models"].([]map[string]any)[0]["multi_agent_version"]
 			server := newTestServer(t)
 			engine := server.engine
 			if source == "home" {
@@ -72,7 +77,7 @@ func TestModelsMultiAgentClientConfigAndReload(t *testing.T) {
 						if entry["slug"] != modelID {
 							continue
 						}
-						var want any
+						want := baselineVersion
 						if tc.want {
 							want = "v2"
 						}
