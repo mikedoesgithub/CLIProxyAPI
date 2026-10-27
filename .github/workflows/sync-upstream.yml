@@ -23,23 +23,31 @@ jobs:
     if: github.repository == 'mikedoesgithub/CLIProxyAPI' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: write
     outputs:
       changed: ${{ steps.sync.outputs.changed }}
       sha: ${{ steps.sync.outputs.sha }}
     steps:
+      - name: Require repository-scoped sync key
+        env:
+          HAS_SYNC_KEY: ${{ secrets.UPSTREAM_SYNC_SSH_KEY != '' }}
+        run: |
+          if [ "$HAS_SYNC_KEY" != true ]; then
+            echo '::error::Configure the UPSTREAM_SYNC_SSH_KEY deploy-key secret.'
+            exit 1
+          fi
       - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+          ssh-key: ${{ secrets.UPSTREAM_SYNC_SSH_KEY }}
       - name: Test sync safety rules
         run: python3 .github/scripts/test-sync-upstream.py
       - name: Configure merge identity
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Check authenticated push access
+        run: git push --dry-run origin HEAD:refs/heads/main
       - name: Check mergeability and sync
         id: sync
         env:
@@ -54,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # GITHUB_TOKEN pushes do not trigger normal push CI, so verify here.
+      # Validate the exact published commit independently of other push workflows.
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.sync.outputs.sha }}
