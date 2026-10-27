@@ -53,3 +53,21 @@ Merge these keys into the existing `management` section; retain its secret and a
 ## Fork verification
 
 On Linux, 2026-10-27: `go test ./internal/managementasset ./internal/config` passed, and `go build -o <temporary-output> ./cmd/server` completed successfully with Go 1.27.0. The full backend test suite and cross-platform release builds were not run for these panel-default changes. No running installation or credential store was modified.
+
+## Automatic upstream sync
+
+[Sync upstream](https://github.com/mikedoesgithub/CLIProxyAPI/actions/workflows/sync-upstream.yml) checks upstream `main` every 15 minutes, offset from the hour. GitHub schedules can be delayed. It also supports Actions → Sync upstream → Run workflow, or:
+
+```bash
+gh workflow run sync-upstream.yml -R mikedoesgithub/CLIProxyAPI -f merge=true
+```
+
+For an immediate check without merging, use `-f merge=false`. Dispatch starts the check as soon as GitHub allocates a runner; it does not wait for GitHub's cached PR mergeability calculation. Without an upstream webhook, upstream pushes cannot trigger this fork instantly.
+
+The workflow fetches both tips and performs a real `git merge --no-ff --no-commit`. Zero conflicts means it commits and pushes the merge to this fork's `main`, retaining both histories and custom changes. Conflicts abort the trial merge, list affected files in the run summary and fail the run without changing the remote branch. Check-only runs abort even a clean trial. Concurrent runs are serialized; an ordinary non-force push rejects a concurrent human update instead of overwriting it. No tags, releases, installed binaries or local configs are updated by this workflow.
+
+A clean Git merge does not guarantee compatible behavior. After a published merge, the same workflow runs the full Go test suite and server build. This is explicit because pushes made with `GITHUB_TOKEN` do not trigger normal push workflows. Validation failure marks the run red and leaves the merge in place for repair; it does not rewrite main or automatically roll back later human commits.
+
+The built-in `GITHUB_TOKEN` has Contents write only in the sync job; verification has read-only access and does not retain checkout credentials. Branch protection or GitHub's restrictions on changing workflow files may reject a push. If needed, configure repository secret `UPSTREAM_SYNC_TOKEN` with a fine-grained token restricted to this repository, Contents write and Workflows write. The token is optional; no personal credential is embedded in this source. Protected branches still require an appropriate permitted actor. Failed pushes remain failures and are never reported as successful merges.
+
+The production script is `.github/scripts/sync-upstream.sh`. Its six isolated local-Git fixtures cover no updates, check-only cleanup, a clean divergent merge preserving fork changes, conflicts, stale-checkout races and rejected pushes. Run `python3 .github/scripts/test-sync-upstream.py` to reproduce them. Both workflows run these fixtures before checking upstream.

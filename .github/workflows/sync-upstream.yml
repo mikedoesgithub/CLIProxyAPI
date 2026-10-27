@@ -1,0 +1,69 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+    inputs:
+      merge:
+        description: 'Merge and push if there are zero conflicts (off = check only)'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'mikedoesgithub/CLIProxyAPI' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+      sha: ${{ steps.sync.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+      - name: Test sync safety rules
+        run: python3 .github/scripts/test-sync-upstream.py
+      - name: Configure merge identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Check mergeability and sync
+        id: sync
+        env:
+          UPSTREAM_REMOTE_URL: https://github.com/router-for-me/CLIProxyAPI.git
+          TARGET_BRANCH: main
+          SYNC_MERGE: ${{ github.event_name != 'workflow_dispatch' || inputs.merge }}
+        run: bash .github/scripts/sync-upstream.sh
+
+  verify:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # GITHUB_TOKEN pushes do not trigger normal push CI, so verify here.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test and build merged backend
+        run: |
+          go test ./...
+          go build -o "$RUNNER_TEMP/cli-proxy-api" ./cmd/server
